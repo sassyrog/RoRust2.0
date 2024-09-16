@@ -1,0 +1,49 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/rust
+{
+	"name": "RoRust2.0",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"1YiB.rust-bundle",
+				"tamasfe.even-better-toml",
+				"seatonjiang.gitmoji-vscode",
+				"usernamehw.errorlens",
+				"PKief.material-icon-theme",
+				"miguelsolorio.fluent-icons",
+				"EliverLara.andromeda",
+				"ms-vscode-remote.remote-containers",
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"fill-labs.dependi"
+			]
+		}
+	},
+	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
+	// "mounts": [
+	// 	{
+	// 		"source": "devcontainer-cargo-cache-${devcontainerId}",
+	// 		"target": "/usr/local/cargo",
+	// 		"type": "volume"
+	// 	}
+	// ]
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "rustc --version",
+	// Configure tool-specific properties.
+	// "customizations": {},
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+	"containerEnv": {
+		"GIT_AUTHOR_NAME": "Sassyrog",
+		"GIT_COMMITTER_NAME": "Sassyrog",
+		"GIT_AUTHOR_EMAIL": "rogerndaba@gmail.com",
+		"GIT_COMMITTER_EMAIL": "rogerndaba@gmail.com"
+	}
+}
