@@ -2,8 +2,15 @@
 name = "ro-rust-v2"
 version = "0.1.0"
 edition = "2021"
+description = "A basic implementation of a gambling game and game server in Rust"
 
 [dependencies]
+configparser = "3.1.0"
+env_logger = "0.11.5"
+log = "0.4.22"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+tokio = { version = "1.40.0", features = ["full"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
