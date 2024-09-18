@@ -1,3 +1,4 @@
+use anyhow::Context;
 use configparser::ini::Ini;
 use serde::Deserialize;
 
@@ -10,18 +11,19 @@ pub struct Config {
     pub jwt_issuer: Option<String>,
 }
 
+#[allow(dead_code)]
 impl Config {
-    pub fn from_file(file_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_file(file_path: &str) -> Result<Self, anyhow::Error> {
         let mut config = Ini::new();
         config.load(file_path).expect("Failed to load config file");
 
         Ok(Config {
             server_address: config
                 .get("server", "address")
-                .ok_or("Missing server address")?,
+                .context("Missing server address")?,
             server_port: config
                 .get("server", "port")
-                .ok_or("Missing server port")?
+                .context("Missing server port")?
                 .parse()?,
             server_password: config.get("server", "password").or(None),
             jwt_secret: config.get("jwt", "secret").or(None),

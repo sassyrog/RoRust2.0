@@ -45,5 +45,10 @@
 		"GIT_COMMITTER_NAME": "Sassyrog",
 		"GIT_AUTHOR_EMAIL": "rogerndaba@gmail.com",
 		"GIT_COMMITTER_EMAIL": "rogerndaba@gmail.com"
+	},
+	"features": {
+		"ghcr.io/guiyomh/features/just:0": {
+			"version": "latest"
+		}
 	}
 }
