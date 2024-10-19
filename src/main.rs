@@ -1,12 +1,16 @@
-use log::info;
 mod config;
+mod game;
+mod message;
 mod server;
+use tokio;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+#[allow(unused_variables)]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = config::Config::from_file("config/settings.ini")?;
+    let game_manager = game::GameManager::new();
 
-    info!("Starting gambling game server...");
-    server::start_server().await?;
+    server::start_server(config).await?;
+
     Ok(())
 }
