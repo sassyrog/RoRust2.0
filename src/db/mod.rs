@@ -3,7 +3,7 @@ use sqlx::Arguments;
 use std::env;
 
 pub struct DbPool {
-    pool: PgPool,
+    pub pool: PgPool,
 }
 
 #[derive(Debug)]

@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::db::DbPool;
+use crate::db_queue::DbQueue;
 
 pub use player::Player;
 pub use room::Room;
@@ -46,13 +47,15 @@ impl GameType {
 pub struct GameManager {
     rooms: RwLock<HashMap<String, Box<dyn Room + Send + Sync>>>,
     db_pool: Arc<DbPool>,
+    db_queue: Arc<DbQueue>,
 }
 
 impl GameManager {
-    pub fn new(db_pool: Arc<DbPool>) -> Self {
+    pub fn new(db_pool: Arc<DbPool>, db_queue: Arc<DbQueue>) -> Self {
         GameManager {
             rooms: RwLock::new(HashMap::new()),
             db_pool,
+            db_queue,
         }
     }
 
