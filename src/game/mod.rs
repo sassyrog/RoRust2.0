@@ -4,17 +4,23 @@ mod room;
 mod roulette;
 
 use serde_json::json;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
+
+use crate::db::DbPool;
 
 pub use player::Player;
 pub use room::Room;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameType {
     Poker,
     Roulette,
+    Blackjack,
+    Slots,
+    Craps,
 }
 
 impl GameType {
@@ -30,18 +36,23 @@ impl GameType {
         match self {
             GameType::Poker => "POKER",
             GameType::Roulette => "ROULETTE",
+            GameType::Blackjack => "BLACKJACK",
+            GameType::Slots => "SLOTS",
+            GameType::Craps => "CRAPS",
         }
     }
 }
 
 pub struct GameManager {
     rooms: RwLock<HashMap<String, Box<dyn Room + Send + Sync>>>,
+    db_pool: Arc<DbPool>,
 }
 
 impl GameManager {
-    pub fn new() -> Self {
+    pub fn new(db_pool: Arc<DbPool>) -> Self {
         GameManager {
             rooms: RwLock::new(HashMap::new()),
+            db_pool,
         }
     }
 
@@ -61,6 +72,7 @@ impl GameManager {
                 let new_room: Box<dyn Room + Send + Sync> = match game_type {
                     GameType::Poker => Box::new(poker::PokerRoom::new(room_id.clone())),
                     GameType::Roulette => Box::new(roulette::RouletteRoom::new(room_id.clone())),
+                    _ => panic!("Unsupported game type"),
                 };
                 // new_room.add_player(player_id); //TODO: Implement this method
                 rooms.insert(room_id.clone(), new_room);

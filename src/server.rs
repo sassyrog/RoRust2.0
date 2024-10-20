@@ -148,12 +148,15 @@ async fn handle_parse_error(
     Ok(())
 }
 
-pub async fn start_server(config: config::Config) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(
+    config: config::Config,
+    game_manager: GameManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.server_address, config.server_port);
     let listener = TcpListener::bind(&addr).await?;
     println!("Server started and listening on {}", addr);
 
-    let game_manager = Arc::new(TokioMutex::new(GameManager::new()));
+    let game_manager = Arc::new(TokioMutex::new(game_manager));
 
     while let Ok((stream, _)) = listener.accept().await {
         let game_manager = Arc::clone(&game_manager);

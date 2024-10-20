@@ -18,6 +18,7 @@ tokio-tungstenite = "0.24.0"
 tokio-util = { version = "0.7.12", features = ["codec"] }
 toml = "0.8.19"
 uuid = { version = "1.11.0", features = ["v4"] }
+sqlx = { version = "0.8.2", features = ["postgres", "runtime-tokio-native-tls"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
