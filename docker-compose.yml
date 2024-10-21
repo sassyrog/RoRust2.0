@@ -1,0 +1,20 @@
+name: "rorust"
+
+services:
+  database:
+    container_name: rorust_database
+    image: postgres:13
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rorust
+
+volumes:
+  postgres_data:
+
+networks:
+  rorust:
+    driver: bridge

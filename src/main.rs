@@ -11,7 +11,7 @@ use tokio;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::Config::from_file("config/settings.ini")?;
-    let db_pool = Arc::new(db::DbPool::new().await?);
+    let db_pool = Arc::new(db::DbPool::new()?);
     let db_queue = Arc::new(db_queue::DbQueue::new(db_pool.clone()));
 
     let game_manager = game::GameManager::new(db_pool.clone(), db_queue.clone());
