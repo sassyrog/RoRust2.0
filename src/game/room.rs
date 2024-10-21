@@ -13,3 +13,9 @@ pub trait Room: Send + Sync {
     fn handle_action(&self, player_id: String, action: String, params: Value) -> Value;
     async fn broadcast(&self, message: &str);
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum RoomCapacity {
+    Default,
+    Custom(u8),
+}

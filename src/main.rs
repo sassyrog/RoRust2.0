@@ -1,11 +1,15 @@
+pub mod models;
+pub mod schema;
+
 mod config;
 mod db;
 mod db_queue;
 mod game;
+
 mod message;
 mod server;
-use std::sync::Arc;
 
+use std::sync::Arc;
 use tokio;
 
 #[tokio::main]

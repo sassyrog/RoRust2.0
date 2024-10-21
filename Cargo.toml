@@ -19,7 +19,16 @@ tokio-tungstenite = "0.24.0"
 tokio-util = { version = "0.7.12", features = ["codec"] }
 toml = "0.8.19"
 uuid = { version = "1.11.0", features = ["v4"] }
-diesel = { version = "2.2.4", features = ["postgres", "r2d2"] }
+diesel = { version = "2.2.4", features = [
+	"postgres",
+	"r2d2",
+	"chrono",
+	"serde_json",
+] }
+chrono = { version = "0.4", features = ["serde"] }
+time = "0.3"
+rust_decimal = "1.36.0"
+diesel-derive-newtype = "2.1.0"
 
 
 [dev-dependencies]

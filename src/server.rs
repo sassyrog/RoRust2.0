@@ -1,5 +1,5 @@
 use crate::config;
-use crate::game::{GameManager, GameType};
+use crate::game::{game_types::*, GameManager};
 use crate::message::{
     parse_client_message, serialize_server_message, ClientMessage, ServerMessage,
 };
@@ -81,10 +81,11 @@ async fn handle_select_game(
     ctx: &mut ConnectionContext,
     game_type: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let game_type = match game_type.as_str() {
-        "POKER" => GameType::Poker,
-        "ROULETTE" => GameType::Roulette,
-        _ => {
+    let game_type = GameType::from_db_string(&game_type);
+
+    let game_type = match game_type {
+        Some(game_type) => game_type,
+        None => {
             let response = ServerMessage::Error {
                 message: "Invalid game type".to_string(),
             };
@@ -98,13 +99,13 @@ async fn handle_select_game(
     ctx.room_id = {
         let game_manager = ctx.game_manager.lock().await;
         game_manager
-            .assign_to_room(ctx.player_id.clone(), game_type)
+            .assign_to_room(ctx.player_id.clone(), game_type.clone())
             .await
     };
 
     let response = ServerMessage::GameAssigned {
         room_id: ctx.room_id.clone(),
-        game_type: game_type.to_str().to_string(),
+        game_type: game_type.to_db_string().to_string(),
     };
 
     ctx.ws_sender

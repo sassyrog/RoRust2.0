@@ -1,3 +1,4 @@
+pub mod game_types;
 mod player;
 mod poker;
 mod room;
@@ -11,38 +12,8 @@ use uuid::Uuid;
 use crate::db::DbPool;
 use crate::db_queue::DbQueue;
 
-pub use player::Player;
+pub use game_types::GameType;
 pub use room::Room;
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GameType {
-    Poker,
-    Roulette,
-    Blackjack,
-    Slots,
-    Craps,
-}
-
-impl GameType {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "POKER" => Some(GameType::Poker),
-            "ROULETTE" => Some(GameType::Roulette),
-            _ => None,
-        }
-    }
-
-    pub fn to_str(&self) -> &str {
-        match self {
-            GameType::Poker => "POKER",
-            GameType::Roulette => "ROULETTE",
-            GameType::Blackjack => "BLACKJACK",
-            GameType::Slots => "SLOTS",
-            GameType::Craps => "CRAPS",
-        }
-    }
-}
 
 pub struct GameManager {
     rooms: RwLock<HashMap<String, Box<dyn Room + Send + Sync>>>,
@@ -72,9 +43,15 @@ impl GameManager {
             }
             None => {
                 let room_id = Uuid::new_v4().to_string();
+
                 let new_room: Box<dyn Room + Send + Sync> = match game_type {
-                    GameType::Poker => Box::new(poker::PokerRoom::new(room_id.clone())),
-                    GameType::Roulette => Box::new(roulette::RouletteRoom::new(room_id.clone())),
+                    GameType::Poker(_) => {
+                        Box::new(poker::PokerRoom::new(room_id.clone(), game_type.clone()))
+                    }
+                    GameType::Roulette(_) => Box::new(roulette::RouletteRoom::new(
+                        room_id.clone(),
+                        game_type.clone(),
+                    )),
                     _ => panic!("Unsupported game type"),
                 };
                 // new_room.add_player(player_id); //TODO: Implement this method

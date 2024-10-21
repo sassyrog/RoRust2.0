@@ -1,4 +1,4 @@
-use crate::game::{GameType, Room};
+use crate::game::{game_types::*, Room};
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashSet;
@@ -6,6 +6,7 @@ use std::collections::HashSet;
 pub struct PokerRoom {
     id: String,
     players: HashSet<String>,
+    game_type: GameType,
 }
 
 #[async_trait]
@@ -16,7 +17,7 @@ impl Room for PokerRoom {
     }
 
     fn game_type(&self) -> GameType {
-        GameType::Poker
+        self.game_type.clone()
     }
 
     fn add_player(&mut self, player_id: String) {
@@ -52,10 +53,11 @@ impl Room for PokerRoom {
 }
 
 impl PokerRoom {
-    pub fn new(id: String) -> Self {
+    pub fn new(id: String, game_type: GameType) -> PokerRoom {
         PokerRoom {
             id,
             players: HashSet::new(),
+            game_type,
         }
     }
 }
