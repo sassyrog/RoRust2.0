@@ -12,6 +12,24 @@ services:
     networks:
       - rorust
 
+  rabbitmq:
+    container_name: rorust_rabbitmq
+    image: rabbitmq:4.0.2-management
+    hostname: rorust_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER?error}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD?error}
+    volumes:
+      - ./init/init-rabbitmq.sh:/docker-entrypoint-initdb.d/init-rabbitmq.sh:ro
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+    networks:
+      - rorust
+
 volumes:
   postgres_data:
 

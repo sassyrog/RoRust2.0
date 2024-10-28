@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::db::DbPool;
-use crate::db_queue::DbQueue;
+use crate::queues::db_queue::DbQueue;
 
 pub use game_types::GameType;
 pub use room::Room;

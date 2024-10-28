@@ -201,4 +201,20 @@ impl GameType {
             _ => None,
         }
     }
+
+    pub fn get_variant(&self) -> Option<&dyn std::fmt::Debug> {
+        match self {
+            GameType::Roulette(v) => Some(v),
+            GameType::CardGame(v) => Some(v),
+            GameType::Poker(v) => Some(v),
+            GameType::Slots(v) => Some(v),
+            GameType::Lottery(v) => Some(v),
+            GameType::Racing(v) => Some(v),
+            GameType::Dice(v) => Some(v),
+            GameType::TableGame(v) => Some(v),
+            GameType::AsianGame(v) => Some(v),
+            GameType::SiciwinGame(v) => Some(v),
+            GameType::Other(v) => Some(v),
+        }
+    }
 }
