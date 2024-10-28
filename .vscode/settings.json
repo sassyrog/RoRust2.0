@@ -1,6 +1,13 @@
 {
-	"rust-analyzer.check.ignore": [
-		"dead_code",
-		"unused_variables"
+	"rust-analyzer.check.command": "check",
+	"rust-analyzer.check.extraArgs": [
+		"--lib"
 	],
+	"rust-analyzer.checkOnSave": true,
+	"rust-analyzer.cargo.features": "all",
+	"rust-analyzer.cargo.buildScripts.enable": false,
+	"rust-analyzer.procMacro.enable": false,
+	"rust-analyzer.cargo.loadOutDirsFromCheck": false,
+	"rust-analyzer.check.invocationStrategy": "once",
+	"rust-analyzer.check.overrideCommand": null
 }

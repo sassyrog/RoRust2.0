@@ -22,6 +22,10 @@
 			]
 		}
 	},
+	"postStartCommand": [
+		"/bin/bash",
+		"./.devcontainer/entrypoint.sh"
+	],
 	"runArgs": [
 		"--network=rorust_rorust",
 		"--env-file=.env"
