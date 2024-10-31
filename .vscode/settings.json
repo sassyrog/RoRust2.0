@@ -1,9 +1,7 @@
 {
 	"rust-analyzer.check.command": "check",
-	"rust-analyzer.check.extraArgs": [
-		"--lib"
-	],
 	"rust-analyzer.checkOnSave": true,
+	"rust-analyzer.check.allTargets": false,
 	"rust-analyzer.cargo.features": "all",
 	"rust-analyzer.cargo.buildScripts.enable": false,
 	"rust-analyzer.procMacro.enable": false,

@@ -1,3 +1,2 @@
 [build]
-target-dir = "target"  # Keeps build artifacts in a consistent location
-incremental = true     # Enables incremental compilation
+target-dir = "target"

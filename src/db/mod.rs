@@ -1,18 +1,120 @@
+use crate::models::DbDecimal;
+use diesel::pg::Pg;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
-use diesel::sql_query;
-use diesel::sql_types::Text;
+use diesel::sql_types::*;
+use serde_json::Value as JsonValue;
+use thiserror::Error;
+
+use std::collections::HashMap;
 use std::env;
 
 pub struct DbPool {
     pub pool: Pool<ConnectionManager<PgConnection>>,
 }
 
-#[derive(QueryableByName)]
-struct Output {
-    #[diesel(sql_type = Text)]
-    value: String,
+#[derive(Error, Debug)]
+pub enum DbError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] diesel::result::Error),
+    #[error("Error getting connection from pool: {0}")]
+    PoolError(#[from] diesel::r2d2::PoolError),
+    #[error("Error executing stored procedure: {0}")]
+    ExecutionError(String),
+}
+
+pub enum SqlParam {
+    // integer types
+    Integer(Option<i32>),
+    BigInt(Option<i64>),
+    SmallInt(Option<i16>),
+    Double(Option<DbDecimal>),
+
+    // text types
+    Text(Option<String>),
+    Varchar(Option<String>),
+
+    // other types
+    Boolean(Option<bool>),
+    Date(Option<chrono::NaiveDate>),
+    Timestamp(Option<chrono::NaiveDateTime>),
+    Uuid(Option<uuid::Uuid>),
+    JsonB(Option<serde_json::Value>),
+
+    // array types
+    IntArray(Option<Vec<i32>>),
+    TextArray(Option<Vec<String>>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParamDirection {
+    In,
+    Out,
+}
+
+#[derive(QueryableByName, Debug)]
+struct JsonResults {
+    #[diesel(sql_type = Json)]
+    json: JsonValue,
+}
+
+#[derive(QueryableByName, Debug)]
+#[diesel(check_for_backend(Pg))]
+pub struct OutParam {
+    #[diesel(sql_type = Nullable<Text>)]
+    pub out_param: Option<String>,
+}
+
+impl SqlParam {
+    fn get_type_name(&self) -> &'static str {
+        match self {
+            SqlParam::Integer(_) => "INTEGER",
+            SqlParam::BigInt(_) => "BIGINT",
+            SqlParam::SmallInt(_) => "SMALLINT",
+            SqlParam::Double(_) => "DOUBLE PRECISION",
+            SqlParam::Text(_) => "TEXT",
+            SqlParam::Varchar(_) => "VARCHAR",
+            SqlParam::Boolean(_) => "BOOLEAN",
+            SqlParam::Date(_) => "DATE",
+            SqlParam::Timestamp(_) => "TIMESTAMP",
+            SqlParam::Uuid(_) => "UUID",
+            SqlParam::JsonB(_) => "JSONB",
+            SqlParam::IntArray(_) => "INTEGER[]",
+            SqlParam::TextArray(_) => "TEXT[]",
+        }
+    }
+    pub fn to_sql(&self) -> String {
+        match self {
+            SqlParam::Integer(Some(v)) => v.to_string(),
+            SqlParam::BigInt(Some(v)) => v.to_string(),
+            SqlParam::SmallInt(Some(v)) => v.to_string(),
+            SqlParam::Double(Some(v)) => v.to_string(),
+            SqlParam::Text(Some(v)) | SqlParam::Varchar(Some(v)) => {
+                format!("'{}'", v.replace("'", "''"))
+            }
+            SqlParam::Boolean(Some(v)) => v.to_string(),
+            SqlParam::Date(Some(v)) => format!("'{}'", v),
+            SqlParam::Timestamp(Some(v)) => format!("'{}'", v),
+            SqlParam::Uuid(Some(v)) => format!("'{}'", v),
+            SqlParam::JsonB(Some(v)) => format!("'{}'", v.to_string().replace("'", "''")),
+            SqlParam::IntArray(Some(v)) => format!(
+                "ARRAY[{}]",
+                v.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            SqlParam::TextArray(Some(v)) => format!(
+                "ARRAY[{}]",
+                v.iter()
+                    .map(|x| format!("'{}'", x.replace("'", "''")))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            _ => "NULL".to_string(),
+        }
+    }
 }
 
 impl DbPool {
@@ -34,90 +136,257 @@ impl DbPool {
         let pool = Pool::builder().max_size(5).build(manager)?;
         Ok(DbPool { pool })
     }
-    /// Executes a stored procedure with the given name and parameters.
+    /// Executes a stored procedure and returns the results as a typed collection.
+    ///
+    /// ### Type Parameters
+    ///
+    /// * `T` - The type that represents a single row in the result set. Must implement `QueryableByName`.
     ///
     /// ### Arguments
     ///
-    /// * `proc_name` - The name of the stored procedure to execute.
-    /// * `params` - A vector of tuples representing the parameters for the stored procedure. Each tuple contains:
-    ///     - The name of the parameter.
-    ///     - The type of the parameter (not used in the current implementation).
-    ///     - An optional value for the parameter, if it is an input parameter.
-    ///     - The mode of the parameter, which can be "IN", "OUT", or "INOUT".
+    /// * `proc_name` - The name of the stored procedure to execute
+    /// * `params` - A vector of parameter tuples, each containing:
+    ///   - Parameter name (string slice)
+    ///   - Parameter value (`SqlParam`)
+    ///   - Parameter direction (`ParamDirection`)
     ///
     /// ### Returns
     ///
-    /// A `Result` containing a tuple with two vectors:
-    /// * The first vector is currently empty and can be modified to return any required results.
-    /// * The second vector contains the values of the OUT and INOUT parameters.
+    /// Returns a tuple containing:
+    /// * A vector of type `T` representing the result rows
+    /// * A HashMap containing the output parameters and their values
     ///
     /// ### Errors
     ///
-    /// Returns an error if there is an issue with getting a connection from the pool or executing the SQL queries.
+    /// Returns a `DbError` if:
+    /// * Cannot get connection from pool
+    /// * Stored procedure execution fails
+    /// * Output parameter retrieval fails
     ///
     /// ### Example
     ///
     /// ```rust
-    /// let db_pool = DbPool::new().unwrap();
-    /// let params = vec![
-    ///     ("param1", "type1", Some("value1"), "IN"),
-    ///     ("param2", "type2", None, "OUT"),
-    /// ];
-    /// let result = db_pool.execute_stored_proc("my_procedure", params);
-    /// match result {
-    ///     Ok((_, outputs)) => println!("Outputs: {:?}", outputs),
-    ///     Err(e) => eprintln!("Error: {}", e),
+    /// use your_crate::{DbPool, SqlParam, ParamDirection};
+    /// use serde::Deserialize;
+    ///
+    /// #[derive(QueryableByName, Debug)]
+    /// struct User {
+    ///     #[diesel(sql_type = Integer)]
+    ///     id: i32,
+    ///     #[diesel(sql_type = Text)]
+    ///     name: String,
     /// }
-    pub fn execute_stored_proc(
+    ///
+    /// let pool = DbPool::new()?;
+    /// let params = vec![
+    ///     ("department", SqlParam::Text(Some("IT".to_string())), ParamDirection::In),
+    ///     ("count", SqlParam::Integer(None), ParamDirection::Out),
+    /// ];
+    ///
+    /// let (users, outputs) = pool.execute_stored_proc::<User>("get_department_users", params)?;
+    /// ```
+
+    pub fn execute_stored_proc<T>(
         &self,
         proc_name: &str,
-        params: Vec<(&str, &str, Option<impl ToString>, &str)>,
-    ) -> Result<(Result<usize, diesel::result::Error>, Vec<String>), Box<dyn std::error::Error>>
+        params: Vec<(&str, SqlParam, ParamDirection)>,
+    ) -> Result<(Vec<T>, HashMap<String, SqlParam>), DbError>
+    where
+        T: for<'a> diesel::deserialize::QueryableByName<Pg> + 'static,
     {
         let mut conn = self.pool.get()?;
+        let mut outputs = HashMap::new();
 
-        // Prepare SQL call for the procedure
-        let mut in_params = vec![];
-        let mut out_params = vec![];
-        let mut call_params = vec![];
+        let transaction_result =
+            conn.transaction(|conn| -> Result<Vec<T>, diesel::result::Error> {
+                let mut param_values = Vec::new();
+                let mut param_placeholders = Vec::new();
+                let mut out_params = Vec::new();
 
-        for (name, _type, value, mode) in params {
-            match mode {
-                "IN" => {
-                    if let Some(val) = value {
-                        in_params.push(format!("{} := {}", name, val.to_string()));
+                // Prepare parameters
+                for (idx, (name, param, direction)) in params.iter().enumerate() {
+                    if *direction == ParamDirection::In {
+                        param_values.push(format!("${} := {}", idx + 1, param.to_sql()));
+                        param_placeholders.push(format!("${}", idx + 1));
+                    } else {
+                        out_params.push((*name, param.clone()));
                     }
                 }
-                "INOUT" => {
-                    if let Some(val) = value {
-                        in_params.push(format!("{} := {}", name, val.to_string()));
+
+                // Execute procedure and get results
+                let call_statement =
+                    format!("CALL {}({});", proc_name, param_placeholders.join(", "));
+
+                // Get the actual result set
+                let results = diesel::sql_query(&call_statement).load::<T>(conn)?;
+
+                // Fetch OUT parameters
+                for (name, param) in out_params {
+                    let query = format!("SELECT {}::{} AS out_param", name, param.get_type_name());
+
+                    let out_value: QueryResult<SqlParam> = diesel::sql_query(&query)
+                        .get_result::<OutParam>(conn)
+                        .map(|row| match param {
+                            SqlParam::Integer(_) => SqlParam::Integer(
+                                row.out_param.as_ref().and_then(|v| v.parse().ok()),
+                            ),
+                            SqlParam::BigInt(_) => SqlParam::BigInt(
+                                row.out_param.as_ref().and_then(|v| v.parse().ok()),
+                            ),
+                            SqlParam::SmallInt(_) => SqlParam::SmallInt(
+                                row.out_param.as_ref().and_then(|v| v.parse().ok()),
+                            ),
+                            SqlParam::Double(_) => {
+                                SqlParam::Double(row.out_param.as_ref().and_then(|v| {
+                                    v.parse::<rust_decimal::Decimal>().ok().map(DbDecimal::from)
+                                }))
+                            }
+                            SqlParam::Text(_) | SqlParam::Varchar(_) => {
+                                SqlParam::Text(row.out_param.clone())
+                            }
+                            SqlParam::Boolean(_) => SqlParam::Boolean(
+                                row.out_param.as_ref().and_then(|v| v.parse().ok()),
+                            ),
+                            SqlParam::Date(_) => {
+                                SqlParam::Date(row.out_param.as_ref().and_then(|v| v.parse().ok()))
+                            }
+                            SqlParam::Timestamp(_) => SqlParam::Timestamp(
+                                row.out_param.as_ref().and_then(|v| v.parse().ok()),
+                            ),
+                            SqlParam::Uuid(_) => {
+                                SqlParam::Uuid(row.out_param.as_ref().and_then(|v| v.parse().ok()))
+                            }
+                            SqlParam::JsonB(_) => SqlParam::JsonB(
+                                row.out_param
+                                    .as_ref()
+                                    .and_then(|v| serde_json::from_str(v).ok()),
+                            ),
+                            SqlParam::IntArray(_) => {
+                                SqlParam::IntArray(row.out_param.as_ref().and_then(|v| {
+                                    let v = v.trim_start_matches('{').trim_end_matches('}');
+                                    Some(v.split(',').filter_map(|n| n.parse().ok()).collect())
+                                }))
+                            }
+                            SqlParam::TextArray(_) => {
+                                SqlParam::TextArray(row.out_param.as_ref().and_then(|v| {
+                                    let v = v.trim_start_matches('{').trim_end_matches('}');
+                                    Some(v.split(',').map(|s| s.to_string()).collect())
+                                }))
+                            }
+                        });
+
+                    if let Ok(value) = out_value {
+                        outputs.insert(name.to_string(), value);
                     }
-                    out_params.push(name);
                 }
 
-                "OUT" => {
-                    out_params.push(name);
-                }
-                _ => continue,
-            }
-            call_params.push(format!("{}", name));
-        }
+                Ok(results)
+            });
 
-        let in_params_sql = in_params.join(", ");
-        let out_params_sql = out_params.join(", ");
+        transaction_result
+            .map(|results| (results, outputs))
+            .map_err(|e| {
+                DbError::ExecutionError(format!("Error executing stored procedure: {}", e))
+            })
+    }
 
-        let sql = format!("CALL {}({});", proc_name, in_params_sql);
+    // Executes a stored procedure and returns the results as JSON values.
+    ///
+    /// This is a convenience wrapper around `execute_stored_proc` that automatically
+    /// handles JSON serialization of results.
+    ///
+    /// ### Arguments
+    ///
+    /// * `proc_name` - The name of the stored procedure to execute
+    /// * `params` - A vector of parameter tuples (name, value, direction)
+    ///
+    /// ### Returns
+    ///
+    /// Returns a tuple containing:
+    /// * A vector of `serde_json::Value` representing the result rows
+    /// * A HashMap containing the output parameters and their values
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// let params = vec![
+    ///     ("status", SqlParam::Text(Some("active".to_string())), ParamDirection::In)
+    /// ];
+    ///
+    /// let (json_results, _) = pool.execute_stored_proc_json("get_active_users", params)?;
+    /// for user in json_results {
+    ///     println!("User ID: {}", user["id"]);
+    ///     println!("Name: {}", user["name"]);
+    /// }
+    /// ```
+    pub fn execute_stored_proc_json(
+        &self,
+        proc_name: &str,
+        params: Vec<(&str, SqlParam, ParamDirection)>,
+    ) -> Result<(Vec<JsonValue>, HashMap<String, SqlParam>), DbError> {
+        self.execute_stored_proc::<JsonResults>(proc_name, params)
+            .map(|(results, outputs)| (results.into_iter().map(|r| r.json).collect(), outputs))
+    }
 
-        let results = sql_query(sql).execute(&mut conn);
+    /// Executes a stored procedure and deserializes the results into the specified type.
+    ///
+    /// This method is useful when you want to work with strongly-typed structures
+    /// but don't want to define Diesel-specific types.
+    ///
+    /// ### Type Parameters
+    ///
+    /// * `T` - The type to deserialize results into. Must implement `DeserializeOwned`.
+    ///
+    /// ### Arguments
+    ///
+    /// * `proc_name` - The name of the stored procedure to execute
+    /// * `params` - A vector of parameter tuples (name, value, direction)
+    ///
+    /// ### Returns
+    ///
+    /// Returns a tuple containing:
+    /// * A vector of type `T` representing the deserialized results
+    /// * A HashMap containing the output parameters and their values
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// use serde::Deserialize;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct UserInfo {
+    ///     id: i32,
+    ///     name: String,
+    ///     email: Option<String>,
+    /// }
+    ///
+    /// let params = vec![
+    ///     ("role", SqlParam::Text(Some("admin".to_string())), ParamDirection::In)
+    /// ];
+    ///
+    /// let (users, _) = pool.execute_stored_proc_typed::<UserInfo>("get_users_by_role", params)?;
+    /// for user in users {
+    ///     println!("User {}: {}", user.id, user.name);
+    /// }
+    /// ```
+    pub fn execute_stored_proc_typed<T>(
+        &self,
+        proc_name: &str,
+        params: Vec<(&str, SqlParam, ParamDirection)>,
+    ) -> Result<(Vec<T>, HashMap<String, SqlParam>), DbError>
+    where
+        T: serde::de::DeserializeOwned + Send + 'static,
+    {
+        self.execute_stored_proc::<JsonResults>(proc_name, params)
+            .and_then(|(results, outputs)| {
+                let converted: Result<Vec<T>, _> = results
+                    .into_iter()
+                    .map(|r| serde_json::from_value(r.json))
+                    .collect();
 
-        // Now, retrieve the OUT and INOUT parameters (if any)
-        let mut outputs = vec![];
-        if !out_params_sql.is_empty() {
-            let select_sql = format!("SELECT {};", out_params_sql);
-            let results: Vec<Output> = sql_query(select_sql).load(&mut conn)?;
-            outputs.extend(results.into_iter().map(|output| output.value));
-        }
-
-        Ok((results, outputs)) // Return empty results for now, modify as needed
+                converted
+                    .map_err(|e| DbError::ExecutionError(format!("JSON conversion error: {}", e)))
+                    .map(|data| (data, outputs))
+            })
     }
 }

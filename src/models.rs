@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde_json::Value as JsonValue;
+use std::fmt;
 
 use diesel_derive_newtype::DieselNewType;
 use rust_decimal::Decimal;
@@ -29,8 +30,14 @@ impl DbGameType {
     }
 }
 
-#[derive(Debug, DieselNewType, Serialize, Deserialize)]
+#[derive(Debug, Clone, DieselNewType, Serialize, Deserialize)]
 pub struct DbDecimal(Decimal);
+
+impl fmt::Display for DbDecimal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl From<Decimal> for DbDecimal {
     fn from(d: Decimal) -> Self {

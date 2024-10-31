@@ -21,8 +21,6 @@ pub enum QueueError {
     Connection(String),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    #[error("Processing error: {0}")]
-    Processing(String),
 }
 
 #[derive(Clone, Debug)]
